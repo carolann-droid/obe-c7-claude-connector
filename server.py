@@ -92,7 +92,16 @@ if SHARED_KEY:
 
     class SharedKeyMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next):
-            if request.headers.get("x-connector-key") != SHARED_KEY:
+            got = request.headers.get("x-connector-key")
+            print(
+                f"AUTH CHECK path={request.url.path} "
+                f"header_present={got is not None} "
+                f"header_len={len(got) if got else 0} "
+                f"matches={got == SHARED_KEY} "
+                f"all_header_names={list(request.headers.keys())}",
+                flush=True,
+            )
+            if got != SHARED_KEY:
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             return await call_next(request)
 
