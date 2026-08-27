@@ -21,6 +21,7 @@ from urllib.parse import parse_qs
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 
@@ -30,7 +31,16 @@ C7_TENANT = os.environ.get("C7_TENANT", "obrien-estate")
 SHARED_KEY = os.environ.get("CONNECTOR_SHARED_KEY")
 C7_BASE = "https://api.commerce7.com/v1"
 
-mcp = FastMCP("obe-commerce7-connector")
+# The mcp SDK's StreamableHTTP transport validates the Host header against an
+# allow-list (DNS-rebinding protection) that defaults to empty, i.e. it
+# rejects every host -- including our own Railway domain -- with
+# HTTP 421 "Invalid Host header". Access here is already gated by the
+# shared-key check below, so it's safe to turn that extra check off rather
+# than hardcode Railway's (occasionally-changing) domain name.
+mcp = FastMCP(
+    "obe-commerce7-connector",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 
 
 def _client() -> httpx.Client:
