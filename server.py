@@ -17,11 +17,11 @@ Required environment variables (set on the Railway service, not sent by callers)
 """
 
 import os
+from urllib.parse import parse_qs
 
 import httpx
 from mcp.server.fastmcp import FastMCP
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
+from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 
 C7_APP_ID = os.environ["C7_APP_ID"]
@@ -90,13 +90,41 @@ app = mcp.streamable_http_app()
 
 if SHARED_KEY:
 
-       class SharedKeyMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request: Request, call_next):
-            # Accept the key either as a header (X-Connector-Key) or as a
-            # ?key= query parameter on the URL. The header wasn't reliably
-            # attached by the caller in practice, so the query param is the
-            # dependable path; the header check is kept as a fallback.
-            got = request.headers.get("x-connector-key") or request.query_params.get("key")
+    class SharedKeyASGIMiddleware:
+        """Plain ASGI middleware (NOT starlette.middleware.base.BaseHTTPMiddleware).
+
+        BaseHTTPMiddleware buffers/re-wraps the response body, which deadlocks
+        or hangs indefinitely against a streaming (SSE) response like the one
+        FastMCP's streamable_http_app() returns for MCP requests -- that hang
+        is what was causing connector checks to time out (HTTP 499, "client
+        has closed the request before the server could send a response").
+        A raw ASGI middleware inspects the request and, for authorized
+        requests, just calls through to the wrapped app untouched.
+        """
+
+        def __init__(self, app):
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] != "http":
+                await self.app(scope, receive, send)
+                return
+
+            headers = Headers(scope=scope)
+            query = parse_qs(scope.get("query_string", b"").decode())
+            got = headers.get("x-connector-key") or (query.get("key", [None])[0])
             if got != SHARED_KEY:
-                return JSONResponse({"error": "unauthorized"}, status_code=401)
-            return await call_next(request)
+                response = JSONResponse({"error": "unauthorized"}, status_code=401)
+                await response(scope, receive, send)
+                return
+
+            await self.app(scope, receive, send)
+
+    app = SharedKeyASGIMiddleware(app)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
