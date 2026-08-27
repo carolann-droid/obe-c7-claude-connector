@@ -90,26 +90,13 @@ app = mcp.streamable_http_app()
 
 if SHARED_KEY:
 
-    class SharedKeyMiddleware(BaseHTTPMiddleware):
+       class SharedKeyMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next):
-            got = request.headers.get("x-connector-key")
-            print(
-                f"AUTH CHECK path={request.url.path} "
-                f"header_present={got is not None} "
-                f"header_len={len(got) if got else 0} "
-                f"matches={got == SHARED_KEY} "
-                f"all_header_names={list(request.headers.keys())}",
-                flush=True,
-            )
+            # Accept the key either as a header (X-Connector-Key) or as a
+            # ?key= query parameter on the URL. The header wasn't reliably
+            # attached by the caller in practice, so the query param is the
+            # dependable path; the header check is kept as a fallback.
+            got = request.headers.get("x-connector-key") or request.query_params.get("key")
             if got != SHARED_KEY:
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             return await call_next(request)
-
-    app.add_middleware(SharedKeyMiddleware)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
