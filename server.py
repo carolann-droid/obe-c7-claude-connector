@@ -82,6 +82,38 @@ def get_club_membership(customer_id: str) -> dict:
 
 
 @mcp.tool()
+def list_club_memberships(params: dict | None = None) -> dict:
+    """List/search Commerce7 club membership records in bulk (not limited to one customer). Read-only.
+
+    `params` is passed through as-is as query parameters to Commerce7's
+    GET /club-membership endpoint (for example {"clubId": "...", "page": "1"}).
+    Omit `params` (or pass {}) to list without filters. Commerce7 paginates
+    results, so check the response shape for a page/cursor field and call
+    again with an updated `page` param to get subsequent pages.
+    """
+    return _call("GET", "/club-membership", params=params or {})
+
+
+@mcp.tool()
+def list_orders(params: dict | None = None) -> dict:
+    """List/search Commerce7 orders in bulk (not limited to one customer). Read-only.
+
+    Club shipments/allocations are orders in Commerce7, so this is the way to
+    pull allocation history across many members at once instead of looking
+    each one up individually. `params` is passed through as-is as query
+    parameters to Commerce7's GET /order endpoint -- for example date-range,
+    order type/status, or club-related filters. The exact parameter names
+    aren't confirmed yet from documentation (Commerce7's docs site couldn't
+    be read), so start with an empty/small params dict, inspect the raw
+    response and any error body Commerce7 sends back for accepted filter
+    names, and iterate from there. Commerce7 paginates results (look for a
+    page/cursor field in the response and pass an updated `page` param for
+    subsequent pages).
+    """
+    return _call("GET", "/order", params=params or {})
+
+
+@mcp.tool()
 def update_customer(customer_id: str, fields: dict, reason: str) -> dict:
     """Update a Commerce7 customer record.
 
