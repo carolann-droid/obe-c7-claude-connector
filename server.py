@@ -113,6 +113,89 @@ def list_orders(params: dict | None = None) -> dict:
     return _call("GET", "/order", params=params or {})
 
 
+# --- Event-page reads (products, collections, coupons, promotions) ----------
+# Added so Claude can verify the Commerce7 side of an event build instead of
+# relying on the user reading fields off the admin by hand. All read-only.
+# Endpoint paths follow Commerce7's singular-resource convention (same as
+# /customer, /order, /club-membership above). Exact query-param and response
+# field names aren't confirmed from docs, so on the first real call inspect
+# the raw response (and any error body) and iterate, same as list_orders.
+
+
+@mcp.tool()
+def list_products(params: dict | None = None) -> dict:
+    """List/search Commerce7 products, including event-ticket products. Read-only.
+
+    `params` is passed through as-is as query parameters to Commerce7's
+    GET /product endpoint -- for example {"q": "pickup party"} to search by
+    title. Use this to find an event's ticket product so its prices, web
+    status, and slug can be read back (see get_product). Prices are in cents.
+    Commerce7 paginates; look for a page/cursor field and pass an updated
+    `page` param for more.
+    """
+    return _call("GET", "/product", params=params or {})
+
+
+@mcp.tool()
+def get_product(product_id: str) -> dict:
+    """Get one Commerce7 product by its id. Read-only.
+
+    Returns the product's full record, which for an event ticket includes the
+    regular price, any member/club pricing, web status (whether the public
+    page is live), the slug (used to build the public obrienestate.com URL),
+    and the collections it belongs to. Prices are in cents.
+    """
+    return _call("GET", f"/product/{product_id}")
+
+
+@mcp.tool()
+def list_collections(params: dict | None = None) -> dict:
+    """List/search Commerce7 collections. Read-only.
+
+    `params` is passed through as-is to GET /collection (for example
+    {"q": "pickup"}). Use this to find the collection behind an Events-page
+    button and read its slug.
+    """
+    return _call("GET", "/collection", params=params or {})
+
+
+@mcp.tool()
+def get_collection(collection_id: str) -> dict:
+    """Get one Commerce7 collection by its id, including the products in it. Read-only.
+
+    Use this to confirm a collection holds the right ticket products and that
+    they are available, before an Events-page button points at the
+    collection's public page.
+    """
+    return _call("GET", f"/collection/{collection_id}")
+
+
+@mcp.tool()
+def list_coupons(params: dict | None = None) -> dict:
+    """List/search Commerce7 coupons (the Marketing > Coupons area). Read-only.
+
+    `params` is passed through as-is to GET /coupon. Use this to read a
+    ticket coupon back after it is set up and confirm its product scope,
+    amount, quantity cap, active state, and dates.
+    """
+    return _call("GET", "/coupon", params=params or {})
+
+
+@mcp.tool()
+def list_promotions(params: dict | None = None) -> dict:
+    """List/search Commerce7 promotions. Read-only.
+
+    Commerce7's discount engine is "Promotions," and a per-ticket cap (like a
+    "first 2 tickets" deal) may live here rather than on a plain coupon, so
+    this is how to see how such a deal is actually built. `params` is passed
+    through as-is to GET /promotion.
+    """
+    return _call("GET", "/promotion", params=params or {})
+
+
+# --- End event-page reads ---------------------------------------------------
+
+
 @mcp.tool()
 def update_customer(customer_id: str, fields: dict, reason: str) -> dict:
     """Update a Commerce7 customer record.
