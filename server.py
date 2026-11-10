@@ -210,7 +210,55 @@ def update_customer(customer_id: str, fields: dict, reason: str) -> dict:
     result["reason"] = reason
     return result
 
+@mcp.tool()
+def list_reservations(params: dict | None = None) -> dict:
+    """List/search Commerce7 reservations. Read-only.
 
+    `params` is passed through as-is as query parameters to Commerce7's
+    GET /reservation endpoint. Exact accepted filter names aren't confirmed
+    from docs -- start with an empty/small params dict, inspect the raw
+    response (and any error body) for accepted names, and iterate, same as
+    list_orders. Commerce7 paginates; look for a page/cursor field and pass
+    an updated `page` param for more.
+    """
+    return _call("GET", "/reservation", params=params or {})
+
+
+@mcp.tool()
+def get_reservation(reservation_id: str) -> dict:
+    """Get one Commerce7 reservation by its id. Read-only."""
+    return _call("GET", f"/reservation/{reservation_id}")
+
+
+@mcp.tool()
+def create_reservation(payload: dict, reason: str) -> dict:
+    """Create a Commerce7 reservation, blocking the corresponding calendar time.
+
+    `payload` is sent as-is as the JSON body to Commerce7's POST /reservation
+    endpoint -- it must follow Commerce7's reservation shape (reservation
+    type/option id, date/time, guest count, customer id, note, etc.). Inspect
+    a real response (or error body) on first use and adjust field names if
+    Commerce7 rejects something, same as the other write tools here.
+    `reason` is a short human-readable note on why this reservation is being
+    created, echoed back for logging, not sent to Commerce7.
+    """
+    result = _call("POST", "/reservation", json=payload)
+    result["reason"] = reason
+    return result
+
+
+@mcp.tool()
+def update_reservation(reservation_id: str, fields: dict, reason: str) -> dict:
+    """Update (including cancel, via a status field) a Commerce7 reservation.
+
+    `fields` is a partial object of the Commerce7 reservation fields to
+    change, sent as the JSON body to PUT /reservation/{reservation_id}.
+    `reason` is a short human-readable note on why this update is being made,
+    echoed back for logging, not sent to Commerce7.
+    """
+    result = _call("PUT", f"/reservation/{reservation_id}", json=fields)
+    result["reason"] = reason
+    return result
 app = mcp.streamable_http_app()
 
 if SHARED_KEY:
