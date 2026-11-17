@@ -213,6 +213,24 @@ def update_customer(customer_id: str, fields: dict, reason: str) -> dict:
     return result
 
 @mcp.tool()
+def create_customer(payload: dict, reason: str) -> dict:
+    """Create a Commerce7 customer record.
+
+    `payload` is sent as-is as the JSON body to Commerce7's POST /customer
+    endpoint. Docs say every field is optional except email, nested as
+    emails: [{"email": "..."}], with firstName/lastName as top-level fields
+    -- but the reservation endpoint's docs understated its real required
+    fields, so don't trust this until a live create is tested. Inspect a
+    real response (or error body) on first use and adjust field names if
+    Commerce7 rejects something, same as the other write tools here.
+    `reason` is a short human-readable note on why this customer is being
+    created, echoed back for logging, not sent to Commerce7.
+    """
+    result = _call("POST", "/customer", json=payload)
+    result["reason"] = reason
+    return result
+
+@mcp.tool()
 def list_reservations(params: dict | None = None) -> dict:
     """List/search Commerce7 reservations. Read-only.
 
