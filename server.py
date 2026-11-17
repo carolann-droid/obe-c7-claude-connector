@@ -61,6 +61,8 @@ def _call(method: str, path: str, **kwargs) -> dict:
                 "status": r.status_code,
                 "body": r.text[:2000],
             }
+                if not r.content:
+            return {"error": False, "status": r.status_code, "data": None}
         return {"error": False, "status": r.status_code, "data": r.json()}
     except httpx.HTTPError as exc:
         return {"error": True, "status": None, "body": str(exc)}
