@@ -259,6 +259,23 @@ def update_reservation(reservation_id: str, fields: dict, reason: str) -> dict:
     result = _call("PUT", f"/reservation/{reservation_id}", json=fields)
     result["reason"] = reason
     return result
+@mcp.tool()
+def delete_reservation(reservation_id: str, reason: str) -> dict:
+    """Permanently delete a Commerce7 reservation, freeing its calendar slot.
+
+    Commerce7's API has no soft-cancel: PUT doesn't accept a status field,
+    and this DELETE call (confirmed via a live test) hard-removes the
+    reservation entirely rather than marking it Cancelled -- there is no
+    trace left afterward (a follow-up GET returns 404). Use this for real
+    Tock cancellations and for the cancel+recreate update path. The
+    cancellation/update history itself belongs in the ledger sheet, not in
+    Commerce7, since Commerce7 keeps none once this runs.
+    `reason` is a short human-readable note on why this is being deleted,
+    echoed back for logging, not sent to Commerce7.
+    """
+    result = _call("DELETE", f"/reservation/{reservation_id}")
+    result["reason"] = reason
+    return result
 app = mcp.streamable_http_app()
 
 if SHARED_KEY:
